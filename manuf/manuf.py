@@ -64,8 +64,10 @@ class MacParser(object):
     MANUF_URL = "https://www.wireshark.org/download/automated/data/manuf"
     WFA_URL = "https://gitlab.com/wireshark/wireshark/raw/master/wka"
 
-    def  __init__(self, manuf_name=None, update=False):
+    def  __init__(self, manuf_name=None, update=False, use_wfa=True):
         self._manuf_name = manuf_name or self.get_packaged_manuf_file_path()
+        self._use_wfa = use_wfa
+        
         if update:
             self.update()
         else:
@@ -156,26 +158,27 @@ class MacParser(object):
             raise URLError("Failed downloading database: {0}".format(err))
 
         response.close()
-        if not wfa_url:
-            wfa_url = self.WFA_URL
-
-        # Append WFA to new database
-        try:
-            response = urlopen(Request(wfa_url, headers={'User-Agent': 'Mozilla'}))
-        except URLError:
-            raise URLError("Failed downloading WFA database")
-
-        # Parse the response
-        if response.code == 200:
-            with open(manuf_name, "ab") as write_file:
-                write_file.write(response.read())
-            if refresh:
-                self.refresh(manuf_name)
-        else:
-            err = "{0} {1}".format(response.code, response.msg)
-            raise URLError("Failed downloading database: {0}".format(err))
-
-        response.close()
+        if self._use_wfa:
+            if not wfa_url:
+                wfa_url = self.WFA_URL
+    
+            # Append WFA to new database
+            try:
+                response = urlopen(Request(wfa_url, headers={'User-Agent': 'Mozilla'}))
+            except URLError:
+                raise URLError("Failed downloading WFA database")
+    
+            # Parse the response
+            if response.code == 200:
+                with open(manuf_name, "ab") as write_file:
+                    write_file.write(response.read())
+                if refresh:
+                    self.refresh(manuf_name)
+            else:
+                err = "{0} {1}".format(response.code, response.msg)
+                raise URLError("Failed downloading database: {0}".format(err))
+    
+            response.close()
 
     def search(self, mac, maximum=1):
         """Search for multiple Vendor tuples possibly matching a MAC address.
