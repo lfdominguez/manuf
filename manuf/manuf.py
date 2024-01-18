@@ -91,7 +91,7 @@ class MacParser(object):
 
         if not wfa_name:
             wfa_name = self._manuf_name
-        with io.fopen(wfa_name, "r", encoding="utf-8") as read_file:
+        with io.open(wfa_name, "r", encoding="utf-8") as read_file:
             wfa_file = StringIO(read_file.read())
         
         self._masks = {}
