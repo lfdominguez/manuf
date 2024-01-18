@@ -90,7 +90,7 @@ class MacParser(object):
             manuf_file = StringIO(read_file.read())
 
         if not wfa_name:
-            wfa_name = self._manuf_name
+            wfa_name = self._wfa_name
         with io.open(wfa_name, "r", encoding="utf-8") as read_file:
             wfa_file = StringIO(read_file.read())
         
