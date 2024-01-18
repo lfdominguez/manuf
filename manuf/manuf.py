@@ -64,16 +64,16 @@ class MacParser(object):
     MANUF_URL = "https://www.wireshark.org/download/automated/data/manuf"
     WFA_URL = "https://gitlab.com/wireshark/wireshark/raw/master/wka"
 
-    def  __init__(self, manuf_name=None, update=False, use_wfa=True):
+    def  __init__(self, manuf_name=None, wfa_name=None, update=False):
         self._manuf_name = manuf_name or self.get_packaged_manuf_file_path()
-        self._use_wfa = use_wfa
+        self._wfa_name = wfa_name or self.get_packaged_wfa_file_path()
         
         if update:
             self.update()
         else:
             self.refresh()
 
-    def refresh(self, manuf_name=None):
+    def refresh(self, manuf_name=None, wfa_name=None):
         """Refresh/reload manuf database. Call this when manuf file is updated.
 
         Args:
@@ -88,7 +88,14 @@ class MacParser(object):
             manuf_name = self._manuf_name
         with io.open(manuf_name, "r", encoding="utf-8") as read_file:
             manuf_file = StringIO(read_file.read())
+
+        if not wfa_name:
+            wfa_name = self._manuf_name
+        with io.fopen(wfa_name, "r", encoding="utf-8") as read_file:
+            wfa_file = StringIO(read_file.read())
+        
         self._masks = {}
+        self._masks_wfa = {}
 
         # Build mask -> result dict
         for line in manuf_file:
@@ -118,10 +125,38 @@ class MacParser(object):
                 print( "Couldn't parse line", line)
                 raise
 
+        # Build mask -> result dict
+        for line in wfa_file:
+            try:
+                line = line.strip()
+                if not line or line[0] == "#":
+                    continue
+                line = line.replace("\t\t", "\t")
+                fields = [field.strip() for field in line.split("\t")]
+
+                parts = fields[0].split("/")
+                mac_str = self._strip_mac(parts[0])
+                mac_int = self._get_mac_int(mac_str)
+                mask = self._bits_left(mac_str)
+
+                # Specification includes mask
+                if len(parts) > 1:
+                    mask_spec = 48 - int(parts[1])
+                    if mask_spec > mask:
+                        mask = mask_spec
+
+                comment = fields[3].strip("#").strip() if len(fields) > 3 else None
+                long_name = fields[2] if len(fields) > 2 else None
+
+                self._masks_wfa[(mask, mac_int >> mask)] = Vendor(manuf=fields[1], manuf_long=long_name, comment=comment)
+            except:
+                print( "Couldn't parse line", line)
+                raise
 
         manuf_file.close()
+        wfa_file.close()
 
-    def update(self, manuf_url=None, wfa_url=None, manuf_name=None, refresh=True):
+    def update(self, manuf_url=None, wfa_url=None, manuf_name=None, wfa_name=None, refresh=True):
         """Update the Wireshark OUI database to the latest version.
 
         Args:
@@ -151,8 +186,6 @@ class MacParser(object):
         if response.code == 200:
             with open(manuf_name, "wb") as write_file:
                 write_file.write(response.read())
-            if refresh:
-                self.refresh(manuf_name)
         else:
             err = "{0} {1}".format(response.code, response.msg)
             raise URLError("Failed downloading database: {0}".format(err))
@@ -161,6 +194,8 @@ class MacParser(object):
         if self._use_wfa:
             if not wfa_url:
                 wfa_url = self.WFA_URL
+            if not wfa_name:
+                wfa_name = self._wfa_name
     
             # Append WFA to new database
             try:
@@ -170,15 +205,16 @@ class MacParser(object):
     
             # Parse the response
             if response.code == 200:
-                with open(manuf_name, "ab") as write_file:
+                with open(wfa_name, "wb") as write_file:
                     write_file.write(response.read())
-                if refresh:
-                    self.refresh(manuf_name)
             else:
                 err = "{0} {1}".format(response.code, response.msg)
                 raise URLError("Failed downloading database: {0}".format(err))
     
             response.close()
+
+            if refresh:
+                self.refresh(manuf_name = manuf_name, waf_name = waf_name)
 
     def search(self, mac, maximum=1):
         """Search for multiple Vendor tuples possibly matching a MAC address.
@@ -210,6 +246,36 @@ class MacParser(object):
                     break
         return vendors
 
+    def search_waf(self, mac, maximum=1):
+        """Search for multiple Vendor tuples possibly matching a MAC address.
+
+        Args:
+            mac (str): MAC address in standard format.
+            maximum (int): Maximum results to return. Defaults to 1.
+
+        Returns:
+            List of Vendor namedtuples containing (manuf, comment), with closest result first. May
+            be empty if no results found.
+
+        Raises:
+            ValueError: If the MAC could not be parsed.
+
+        """
+        vendors = []
+        if maximum <= 0:
+            return vendors
+        mac_str = self._strip_mac(mac)
+        mac_int = self._get_mac_int(mac_str)
+
+        # If the user only gave us X bits, check X bits. No partial matching!
+        for mask in range(self._bits_left(mac_str), 48):
+            result = self._masks_waf.get((mask, mac_int >> mask))
+            if result:
+                vendors.append(result)
+                if len(vendors) >= maximum:
+                    break
+        return vendors
+
     def get_all(self, mac):
         """Get a Vendor tuple containing (manuf, comment) from a MAC address.
 
@@ -229,6 +295,25 @@ class MacParser(object):
             return Vendor(manuf=None, manuf_long=None, comment=None)
         return vendors[0]
 
+    def get_all_waf(self, mac):
+        """Get a Vendor tuple containing (manuf, comment) from a MAC address.
+
+        Args:
+            mac (str): MAC address in standard format.
+
+        Returns:
+            Vendor: Vendor namedtuple containing (manuf, comment). Either or both may be None if
+            not found.
+
+        Raises:
+            ValueError: If the MAC could not be parsed.
+
+        """
+        vendors = self.search_waf(mac)
+        if len(vendors) == 0:
+            return Vendor(manuf=None, manuf_long=None, comment=None)
+        return vendors[0]
+
     def get_manuf(self, mac):
         """Returns manufacturer from a MAC address.
 
@@ -243,6 +328,21 @@ class MacParser(object):
 
         """
         return self.get_all(mac).manuf
+
+    def get_waf(self, mac):
+        """Returns manufacturer from a MAC address.
+
+        Args:
+            mac (str): MAC address in standard format.
+
+        Returns:
+            string: String containing manufacturer, or None if not found.
+
+        Raises:
+            ValueError: If the MAC could not be parsed.
+
+        """
+        return self.get_all_waf(mac).manuf
 
     def get_manuf_long(self, mac):
         """Returns manufacturer long name from a MAC address.
