@@ -214,7 +214,7 @@ class MacParser(object):
         response.close()
 
         if refresh:
-            self.refresh(manuf_name = manuf_name, waf_name = waf_name)
+            self.refresh(manuf_name = manuf_name, wfa_name = wfa_name)
 
     def search(self, mac, maximum=1):
         """Search for multiple Vendor tuples possibly matching a MAC address.
