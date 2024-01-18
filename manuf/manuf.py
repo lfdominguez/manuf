@@ -408,6 +408,20 @@ class MacParser(object):
         manuf_file_path = os.path.join(package_path, 'manuf')
         return manuf_file_path
 
+    @staticmethod
+    def get_packaged_wfa_file_path():
+        """
+        returns the path to manuf file bundled with the package.
+        :return:
+        """
+        if __package__ is None or __package__ == "":
+            package_init_path = __file__
+        else:
+            package_init_path = importlib.import_module(__package__).__file__
+        package_path = os.path.abspath(os.path.join(package_init_path, os.pardir))
+        wfa_file_path = os.path.join(package_path, 'wfa')
+        return wfa_file_path
+
 
 def main(*input_args):
     """Simple command line wrapping for MacParser."""
