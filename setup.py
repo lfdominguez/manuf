@@ -5,7 +5,7 @@ README = open("./README.md",'r').read()
 setup(
     name = 'manuf',
     packages = ['manuf'],
-    version = '1.2.0-lfdominguez',
+    version = '1.2.0',
     description = 'Parser library for Wireshark\'s OUI database',
     author = 'Michael Huang',
     url = 'https://github.com/coolbho3k/manuf/',
