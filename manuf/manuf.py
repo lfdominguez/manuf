@@ -269,7 +269,7 @@ class MacParser(object):
 
         # If the user only gave us X bits, check X bits. No partial matching!
         for mask in range(self._bits_left(mac_str), 48):
-            result = self._masks_waf.get((mask, mac_int >> mask))
+            result = self._masks_wfa.get((mask, mac_int >> mask))
             if result:
                 vendors.append(result)
                 if len(vendors) >= maximum:
@@ -329,7 +329,7 @@ class MacParser(object):
         """
         return self.get_all(mac).manuf
 
-    def get_waf(self, mac):
+    def get_wfa(self, mac):
         """Returns manufacturer from a MAC address.
 
         Args:
