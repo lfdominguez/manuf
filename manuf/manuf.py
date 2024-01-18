@@ -191,30 +191,30 @@ class MacParser(object):
             raise URLError("Failed downloading database: {0}".format(err))
 
         response.close()
-        if self._use_wfa:
-            if not wfa_url:
-                wfa_url = self.WFA_URL
-            if not wfa_name:
-                wfa_name = self._wfa_name
-    
-            # Append WFA to new database
-            try:
-                response = urlopen(Request(wfa_url, headers={'User-Agent': 'Mozilla'}))
-            except URLError:
-                raise URLError("Failed downloading WFA database")
-    
-            # Parse the response
-            if response.code == 200:
-                with open(wfa_name, "wb") as write_file:
-                    write_file.write(response.read())
-            else:
-                err = "{0} {1}".format(response.code, response.msg)
-                raise URLError("Failed downloading database: {0}".format(err))
-    
-            response.close()
+       
+        if not wfa_url:
+            wfa_url = self.WFA_URL
+        if not wfa_name:
+            wfa_name = self._wfa_name
 
-            if refresh:
-                self.refresh(manuf_name = manuf_name, waf_name = waf_name)
+        # Append WFA to new database
+        try:
+            response = urlopen(Request(wfa_url, headers={'User-Agent': 'Mozilla'}))
+        except URLError:
+            raise URLError("Failed downloading WFA database")
+
+        # Parse the response
+        if response.code == 200:
+            with open(wfa_name, "wb") as write_file:
+                write_file.write(response.read())
+        else:
+            err = "{0} {1}".format(response.code, response.msg)
+            raise URLError("Failed downloading database: {0}".format(err))
+
+        response.close()
+
+        if refresh:
+            self.refresh(manuf_name = manuf_name, waf_name = waf_name)
 
     def search(self, mac, maximum=1):
         """Search for multiple Vendor tuples possibly matching a MAC address.
